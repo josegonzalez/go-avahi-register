@@ -1,0 +1,3 @@
+FROM scratch
+COPY ./build/linux/avahi-register /avahi-register
+ENTRYPOINT ["/avahi-register"]
