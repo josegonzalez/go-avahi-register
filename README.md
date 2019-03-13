@@ -41,6 +41,12 @@ Using the above `config.json`, `avahi-register` may be triggered as follows:
 avahi-register -config config.json
 ```
 
+By default, `avahi-register` will register against the first network interface with an IPv4 IP Address that is not a loopback device. In the case where this may be ambiguous or result in the wrong IP Address being selected, the value may be overriden with the `-ip-address` flag:
+
+```shell
+avahi-register -config config.json -ip-address 192.168.1.2
+```
+
 The `avahi-register` process responds to signals, and will reload the `config.json` on `SIGHUP`. Note that an invalid `config.json` will result in a hard crash of `avahi-register`.
 
 ### Service Schema
