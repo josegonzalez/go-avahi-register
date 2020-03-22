@@ -129,7 +129,15 @@ func hydrateService(s Service) (Service, error) {
 	return s, nil
 }
 
-func publishServices(services []Service, ipAddress string, reverseIPAddress string) error {
+func getRegistry() *Registry {
+	registryLock.RLock()
+	defer registryLock.RUnlock()
+	return registry
+}
+
+func publishServices(ipAddress string, reverseIPAddress string) error {
+	r := getRegistry()
+
 	zone, err := mdns.New()
 	if err != nil {
 		return err
@@ -138,7 +146,7 @@ func publishServices(services []Service, ipAddress string, reverseIPAddress stri
 	publishedServices := map[string]bool{}
 	publishedServiceTypes := map[string]bool{}
 	log.Println("registering services to", ipAddress)
-	for _, service := range services {
+	for _, service := range r.Services {
 		name := service.Name
 		serviceType := service.ServiceType
 		serviceKey := fmt.Sprintf("%v %v", serviceType, name)
@@ -179,7 +187,7 @@ func main() {
 			return err
 		}
 
-		if err := publishServices(registry.Services, ipAddress, reverseIPAddress); err != nil {
+		if err := publishServices(ipAddress, reverseIPAddress); err != nil {
 			return err
 		}
 		return nil
