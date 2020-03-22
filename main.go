@@ -210,7 +210,8 @@ func main() {
 		syscall.SIGHUP,
 		syscall.SIGINT,
 		syscall.SIGQUIT,
-		syscall.SIGTERM)
+		syscall.SIGTERM,
+		syscall.SIGUSR2)
 
 	e := make(chan int)
 	go func() {
