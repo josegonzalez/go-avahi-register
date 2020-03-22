@@ -8,6 +8,7 @@ SYSTEM_NAME  = $(shell uname -s | tr '[:upper:]' '[:lower:]')
 BASE_VERSION ?= 0.2.0
 IMAGE_NAME ?= $(MAINTAINER)/$(REPOSITORY)
 PACKAGECLOUD_REPOSITORY ?= josegonzalez/packages-beta
+DEPENDS ?= avahi-daemon
 
 ifeq ($(CIRCLE_BRANCH),release)
 	VERSION ?= $(BASE_VERSION)
@@ -80,6 +81,7 @@ build/deb/$(NAME)_$(VERSION)_amd64.deb: build/linux/$(NAME)
 		--architecture amd64 \
 		--category utils \
 		--description "$$PACKAGE_DESCRIPTION" \
+		--depends $(DEPENDS) \
 		--input-type dir \
 		--license 'MIT License' \
 		--maintainer "$(MAINTAINER_NAME) <$(EMAIL)>" \
@@ -103,6 +105,7 @@ build/rpm/$(NAME)-$(VERSION)-1.x86_64.rpm: build/linux/$(NAME)
 		--architecture x86_64 \
 		--category utils \
 		--description "$$PACKAGE_DESCRIPTION" \
+		--depends $(DEPENDS) \
 		--input-type dir \
 		--license 'MIT License' \
 		--maintainer "$(MAINTAINER_NAME) <$(EMAIL)>" \
