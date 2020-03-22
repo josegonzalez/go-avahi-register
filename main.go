@@ -155,15 +155,14 @@ func publishServices(ipAddress string, reverseIPAddress string) error {
 	for _, service := range r.Services {
 		name := service.Name
 		serviceType := service.Type
-		serviceKey := fmt.Sprintf("%v %v", serviceType, name)
 
-		seenServices[serviceKey] = true
+		seenServices[service.String()] = true
 		seenTypes[serviceType] = true
 
-		if _, ok := publishedServices[serviceKey]; !ok {
+		if _, ok := publishedServices[service.String()]; !ok {
 			log.Println("publishing", service.String())
 			publishService(service, ipAddress, reverseIPAddress)
-			publishedServices[serviceKey] = service
+			publishedServices[service.String()] = service
 		}
 
 		if !publishedTypes[serviceType] {
@@ -175,11 +174,11 @@ func publishServices(ipAddress string, reverseIPAddress string) error {
 		zone.Publish(fmt.Sprintf("%v.%v 60 IN SRV 0 0 %v %[1]v.local.", name, serviceType, service.Port))
 	}
 
-	for serviceKey, service := range publishedServices {
-		if !seenServices[serviceKey] {
+	for _, service := range publishedServices {
+		if !seenServices[service.String()] {
 			log.Println("unpublishing", service.String())
 			unpublishService(service, ipAddress, reverseIPAddress)
-			delete(publishedServices, serviceKey)
+			delete(publishedServices, service.String())
 		}
 	}
 
