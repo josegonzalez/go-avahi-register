@@ -13,16 +13,17 @@ import (
 	"strings"
 	"sync"
 	"syscall"
+	"time"
 
-	"github.com/eliasgs/mdns"
+	"github.com/josegonzalez/mdns"
 )
 
 type Service struct {
-	Name        string `json:"name"`
-	Port        int    `json:"port"`
-	Protocol    string `json:"protocol"`
-	Scheme      string `json:"scheme"`
-	ServiceType string
+	Name     string `json:"name"`
+	Port     int    `json:"port"`
+	Protocol string `json:"protocol"`
+	Scheme   string `json:"scheme"`
+	Type     string
 }
 
 type Registry struct {
@@ -30,13 +31,19 @@ type Registry struct {
 }
 
 var (
-	configFile   = flag.String("config", "config.json", "path to the config.json config file")
-	ipAddress    = flag.String("ip-address", "", "a hardcoded ip address")
-	registry     *Registry
-	registryLock = new(sync.RWMutex)
-	zone         *mdns.Zone
-	zoneLock     = new(sync.RWMutex)
+	configFile        = flag.String("config", "config.json", "path to the config.json config file")
+	ipAddress         = flag.String("ip-address", "", "a hardcoded ip address")
+	registry          *Registry
+	registryLock      = new(sync.RWMutex)
+	zone              *mdns.Zone
+	zoneLock          = new(sync.RWMutex)
+	publishedServices = map[string]Service{}
+	publishedTypes    = map[string]bool{}
 )
+
+func (s *Service) String() string {
+	return fmt.Sprintf("%v+%v://%v.local:%v", s.Scheme, s.Protocol, s.Name, s.Port)
+}
 
 func getIPAddress() (string, error) {
 	if *ipAddress != "" {
@@ -113,9 +120,9 @@ func hydrateService(s Service) (Service, error) {
 		s.Protocol = "tcp"
 	}
 
-	s.ServiceType = fmt.Sprintf("_%v._%v.local.", s.Scheme, s.Protocol)
+	s.Type = fmt.Sprintf("_%v._%v.local.", s.Scheme, s.Protocol)
 	if s.Scheme == "" {
-		s.ServiceType = fmt.Sprintf("_%v.local.", s.Protocol)
+		s.Type = fmt.Sprintf("_%v.local.", s.Protocol)
 	}
 
 	tcpServices := map[string]bool{
@@ -140,34 +147,66 @@ func getRegistry() *Registry {
 func publishServices(ipAddress string, reverseIPAddress string) error {
 	r := getRegistry()
 
-	publishedServices := map[string]bool{}
-	publishedServiceTypes := map[string]bool{}
 	zoneLock.Lock()
-	log.Println("registering services to", ipAddress)
+	seenServices := map[string]bool{}
+	seenTypes := map[string]bool{}
+
 	for _, service := range r.Services {
 		name := service.Name
-		serviceType := service.ServiceType
+		serviceType := service.Type
 		serviceKey := fmt.Sprintf("%v %v", serviceType, name)
 
-		log.Println("registering", serviceType, service.Port, name)
-		if !publishedServices[serviceKey] {
-			zone.Publish(fmt.Sprintf("%v.local. 60 IN A %v", name, ipAddress))
-			zone.Publish(fmt.Sprintf("%v.in-addr.arpa. 60 IN PTR %s.local.", reverseIPAddress, name))
-			zone.Publish(fmt.Sprintf("%v 60 IN PTR %v.%[1]v", serviceType, name))
-			zone.Publish(fmt.Sprintf(`%v.%v 60 IN TXT ""`, name, serviceType))
-			publishedServices[serviceKey] = true
+		seenServices[serviceKey] = true
+		seenTypes[serviceType] = true
+
+		if _, ok := publishedServices[serviceKey]; !ok {
+			log.Println("publishing", service.String())
+			publishService(service, ipAddress, reverseIPAddress)
+			publishedServices[serviceKey] = service
 		}
 
-		if !publishedServiceTypes[serviceType] {
+		if !publishedTypes[serviceType] {
+			log.Println("registering type", serviceType)
 			zone.Publish(fmt.Sprintf("_services._dns-sd._udp.local. 60 IN PTR %v", serviceType))
-			publishedServiceTypes[serviceType] = true
+			publishedTypes[serviceType] = true
 		}
 
 		zone.Publish(fmt.Sprintf("%v.%v 60 IN SRV 0 0 %v %[1]v.local.", name, serviceType, service.Port))
 	}
 
+	for serviceKey, service := range publishedServices {
+		if !seenServices[serviceKey] {
+			log.Println("unpublishing", service.String())
+			unpublishService(service, ipAddress, reverseIPAddress)
+			delete(publishedServices, serviceKey)
+		}
+	}
+
+	for serviceType, _ := range publishedTypes {
+		if !seenTypes[serviceType] {
+			log.Println("deregistering type", serviceType)
+			zone.Unpublish(fmt.Sprintf("_services._dns-sd._udp.local. 60 IN PTR %v", serviceType))
+			delete(publishedTypes, serviceType)
+		}
+	}
+
 	zoneLock.Unlock()
 	return nil
+}
+
+func publishService(service Service, ipAddress string, reverseIPAddress string) {
+	zone.Publish(fmt.Sprintf("%v.local. 60 IN A %v", service.Name, ipAddress))
+	zone.Publish(fmt.Sprintf("%v.in-addr.arpa. 60 IN PTR %s.local.", reverseIPAddress, service.Name))
+	zone.Publish(fmt.Sprintf("%v 60 IN PTR %v.%[1]v", service.Type, service.Name))
+	zone.Publish(fmt.Sprintf(`%v.%v 60 IN TXT ""`, service.Name, service.Type))
+}
+
+func unpublishService(service Service, ipAddress string, reverseIPAddress string) {
+	zone.Unpublish(fmt.Sprintf("%v.local. 60 IN A %v", service.Name, ipAddress))
+	zone.Unpublish(fmt.Sprintf("%v.in-addr.arpa. 60 IN PTR %s.local.", reverseIPAddress, service.Name))
+	zone.Unpublish(fmt.Sprintf("%v 60 IN PTR %v.%[1]v", service.Type, service.Name))
+	zone.Unpublish(fmt.Sprintf(`%v.%v 60 IN TXT ""`, service.Name, service.Type))
+	zone.Unpublish(fmt.Sprintf("%v.%v 60 IN SRV 0 0 %v %[1]v.local.", service.Name, service.Type, service.Port))
 }
 
 func main() {
@@ -189,7 +228,7 @@ func main() {
 
 	reverseIPAddress := getReverseIPAddress(ipAddress)
 
-	reloadRegistry := func() error {
+	reloadServices := func() error {
 		if err := loadRegistry(); err != nil {
 			return err
 		}
@@ -200,7 +239,8 @@ func main() {
 		return nil
 	}
 
-	if err = reloadRegistry(); err != nil {
+	log.Println("registering services to", ipAddress)
+	if err = reloadServices(); err != nil {
 		log.Println("err:", err)
 		os.Exit(1)
 	}
@@ -220,19 +260,31 @@ func main() {
 			switch s {
 			// kill -SIGHUP XXXX
 			case syscall.SIGHUP:
-				log.Println("Received SIGHUP")
-				if err := reloadRegistry(); err != nil {
+				log.Println("received SIGHUP")
+				if err := reloadServices(); err != nil {
 					log.Println("err:", err)
 					e <- 1
 				}
 
 			// kill -SIGUSR2 XXXX
 			case syscall.SIGUSR2:
-				log.Println("Received SIGUSR2")
-				if err := reloadRegistry(); err != nil {
+				log.Println("received SIGUSR2")
+				if err := reloadServices(); err != nil {
 					log.Println("err:", err)
 					e <- 1
 				}
+
+			case syscall.SIGINT:
+				log.Println("received SIGINT")
+				e <- 0
+
+			case syscall.SIGQUIT:
+				log.Println("received SIGQUIT")
+				e <- 0
+
+			case syscall.SIGTERM:
+				log.Println("received SIGTERM")
+				e <- 0
 
 			default:
 				log.Println("received unhandled signal")
@@ -242,5 +294,7 @@ func main() {
 	}()
 
 	code := <-e
+
+	log.Println("exiting with code", code)
 	os.Exit(code)
 }
