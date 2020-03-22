@@ -100,6 +100,16 @@ avahi-register cat
 
 See the `avahi-register cat --help` output for more information.
 
+### Initialize a config
+
+The `init` command can be used to initialize a config file:
+
+```shell
+avahi-register init
+```
+
+See the `avahi-register init --help` output for more information.
+
 ### Removing an entry
 
 The `remove` command can be used to remove an entry:

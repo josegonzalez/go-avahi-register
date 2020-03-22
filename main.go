@@ -279,6 +279,25 @@ func catCommand(configFile string) int {
 	return 0
 }
 
+func initCommand(configFile string) int {
+	if err := loadRegistry(configFile); err != nil {
+		registry = new(Registry)
+	}
+
+	file, err := json.MarshalIndent(registry, "", "  ")
+	if err != nil {
+		log.Println("err:", err)
+		return 1
+	}
+
+	if err = ioutil.WriteFile(configFile, file, 0644); err != nil {
+		log.Println("err:", err)
+		return 1
+	}
+
+	return 0
+}
+
 func removeCommand(configFile string, name string, port int, scheme string, protocol string) int {
 	if err := loadRegistry(configFile); err != nil {
 		log.Println("err:", err)
@@ -469,6 +488,8 @@ func main() {
 
 	catCmd := parser.NewCommand("cat", "cat the config file")
 
+	initCmd := parser.NewCommand("init", "init a the config file if necessary")
+
 	removeCmd := parser.NewCommand("remove", "remove an entry from the config file")
 	nameRemoveFlag := removeCmd.String("n", "name", &argparse.Options{Help: "name of the service", Required: true})
 	portRemoveFlag := removeCmd.Int("p", "port", &argparse.Options{Default: 80, Help: "port on which the service is listening"})
@@ -499,6 +520,8 @@ func main() {
 		exitCode = addCommand(*configFileFlag, *nameAddFlag, *portAddFlag, *schemeAddFlag, *protocolAddFlag)
 	} else if catCmd.Happened() {
 		exitCode = catCommand(*configFileFlag)
+	} else if initCmd.Happened() {
+		exitCode = initCommand(*configFileFlag)
 	} else if removeCmd.Happened() {
 		exitCode = removeCommand(*configFileFlag, *nameRemoveFlag, *portRemoveFlag, *schemeRemoveFlag, *protocolRemoveFlag)
 	} else if runCmd.Happened() {
