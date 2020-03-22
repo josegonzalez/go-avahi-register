@@ -90,6 +90,8 @@ build/deb/$(NAME)_$(VERSION)_amd64.deb: build/linux/$(NAME)
 		--version $(VERSION) \
 		--verbose \
 		build/linux/$(NAME)=/usr/bin/$(NAME) \
+		$(NAME).service=/etc/systemd/system/$(NAME).service \
+		$(NAME).target=/etc/systemd/system/$(NAME).target \
 		LICENSE=/usr/share/doc/$(NAME)/copyright
 
 build/rpm/$(NAME)-$(VERSION)-1.x86_64.rpm: build/linux/$(NAME)
@@ -111,6 +113,8 @@ build/rpm/$(NAME)-$(VERSION)-1.x86_64.rpm: build/linux/$(NAME)
 		--version $(VERSION) \
 		--verbose \
 		build/linux/$(NAME)=/usr/bin/$(NAME) \
+		$(NAME).service=/etc/systemd/system/$(NAME).service \
+		$(NAME).target=/etc/systemd/system/$(NAME).target \
 		LICENSE=/usr/share/doc/$(NAME)/copyright
 
 clean:
