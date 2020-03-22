@@ -9,7 +9,7 @@ Environment=PS=avahi-register
 EnvironmentFile=-/etc/default/avahi-register
 EnvironmentFile=-/etc/sysconfig/avahi-register
 ExecStartPre=/usr/bin/avahi-register init
-ExecStart=/bin/bash -lc 'exec -a "avahi-register" avahi-register run'
+ExecStart=/usr/bin/avahi-register run
 Restart=always
 RestartSec=10s
 StandardInput=null
