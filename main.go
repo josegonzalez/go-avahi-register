@@ -174,6 +174,18 @@ func main() {
 		syscall.SIGTERM,
 		syscall.SIGQUIT)
 
+	reloadRegistry := func() error {
+		settings, err := fetchServices()
+		if err != nil {
+			return err
+		}
+
+		if err = publishServices(settings.Services, ipAddress, reverseIPAddress); err != nil {
+			return err
+		}
+		return nil
+	}
+
 	e := make(chan int)
 	go func() {
 		for {
@@ -182,33 +194,13 @@ func main() {
 			// kill -SIGHUP XXXX
 			case syscall.SIGHUP:
 				log.Println("Received SIGHUP")
-				settings, err := fetchServices()
-				if err != nil {
+				if err := reloadRegistry(); err != nil {
 					log.Println("err:", err)
 					e <- 1
 				}
-
-				publishServices(settings.Services, ipAddress, reverseIPAddress)
-				if err != nil {
-					log.Println("err:", err)
-					e <- 1
-				}
-
-			case syscall.SIGINT:
-				log.Println("received SIGINT")
-				e <- 0
-
-			case syscall.SIGTERM:
-				log.Println("received SIGTERM")
-				e <- 0
-
-			// kill -SIGQUIT XXXX
-			case syscall.SIGQUIT:
-				log.Println("received SIGQUIT")
-				e <- 0
 
 			default:
-				log.Println("received unknown signal")
+				log.Println("received unhandled signal")
 				e <- 1
 			}
 		}
