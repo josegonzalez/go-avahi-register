@@ -218,6 +218,14 @@ func main() {
 					e <- 1
 				}
 
+			// kill -SIGUSR2 XXXX
+			case syscall.SIGUSR2:
+				log.Println("Received SIGUSR2")
+				if err := reloadRegistry(); err != nil {
+					log.Println("err:", err)
+					e <- 1
+				}
+
 			default:
 				log.Println("received unhandled signal")
 				e <- 1
