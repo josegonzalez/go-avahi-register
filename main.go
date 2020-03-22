@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/josegonzalez/mdns"
+	"github.com/radovskyb/watcher"
 )
 
 type Service struct {
@@ -245,6 +246,13 @@ func main() {
 		os.Exit(1)
 	}
 
+	w := watcher.New()
+	w.SetMaxEvents(1)
+	if err = w.Add(*configFile); err != nil {
+		log.Println("err:", err)
+		os.Exit(1)
+	}
+
 	c := make(chan os.Signal, 1)
 	signal.Notify(c,
 		syscall.SIGHUP,
@@ -263,6 +271,7 @@ func main() {
 				log.Println("received SIGHUP")
 				if err := reloadServices(); err != nil {
 					log.Println("err:", err)
+					w.Close()
 					e <- 1
 				}
 
@@ -271,27 +280,69 @@ func main() {
 				log.Println("received SIGUSR2")
 				if err := reloadServices(); err != nil {
 					log.Println("err:", err)
+					w.Close()
 					e <- 1
 				}
 
 			case syscall.SIGINT:
 				log.Println("received SIGINT")
+				w.Close()
 				e <- 0
 
 			case syscall.SIGQUIT:
 				log.Println("received SIGQUIT")
+				w.Close()
 				e <- 0
 
 			case syscall.SIGTERM:
 				log.Println("received SIGTERM")
+				w.Close()
 				e <- 0
 
 			default:
 				log.Println("received unhandled signal")
+				w.Close()
 				e <- 1
 			}
 		}
 	}()
+
+	go func() {
+		for {
+			select {
+			case event := <-w.Event:
+				if event.Op == watcher.Remove {
+					log.Println("config file removed")
+					e <- 1
+				} else if event.Op == watcher.Move || event.Op == watcher.Rename {
+					log.Println("config file moved")
+					e <- 1
+				} else if event.Op == watcher.Write {
+					log.Println("config file updated")
+					if err := reloadServices(); err != nil {
+						log.Println("err:", err)
+						e <- 1
+					}
+				}
+
+			case err := <-w.Error:
+				log.Println("err:", err)
+				w.Close()
+				e <- 1
+
+			case <-w.Closed:
+				log.Println("watcher closed")
+				e <- 0
+				return
+			}
+		}
+	}()
+
+	// Start the watching process - it'll check for changes every 100ms.
+	if err := w.Start(time.Millisecond * 100); err != nil {
+		log.Println("err:", err)
+		e <- 1
+	}
 
 	code := <-e
 
