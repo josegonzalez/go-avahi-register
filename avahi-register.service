@@ -8,7 +8,7 @@ WorkingDirectory=/
 Environment=PS=avahi-register
 EnvironmentFile=-/etc/default/avahi-register
 EnvironmentFile=-/etc/sysconfig/avahi-register
-ExecStartPre=avahi-register init
+ExecStartPre=/usr/bin/avahi-register init
 ExecStart=/bin/bash -lc 'exec -a "avahi-register" avahi-register'
 Restart=always
 RestartSec=10s
