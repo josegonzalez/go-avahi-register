@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 
 	"github.com/eliasgs/mdns"
@@ -29,8 +30,10 @@ type Registry struct {
 }
 
 var (
-	configFile = flag.String("config", "config.json", "path to the config.json config file")
-	ipAddress  = flag.String("ip-address", "", "a hardcoded ip address")
+	configFile   = flag.String("config", "config.json", "path to the config.json config file")
+	ipAddress    = flag.String("ip-address", "", "a hardcoded ip address")
+	registry     *Registry
+	registryLock = new(sync.RWMutex)
 )
 
 func getIPAddress() (string, error) {
@@ -64,15 +67,16 @@ func getReverseIPAddress(ipAddress string) string {
 	return strings.Join(pieces, ".")
 }
 
-func fetchServices() (settings Registry, err error) {
+func loadRegistry() (err error) {
 	data, err := ioutil.ReadFile(*configFile)
 	if err != nil {
-		return settings, err
+		return err
 	}
 
-	err = json.Unmarshal(data, &settings)
+	temp := new(Registry)
+	err = json.Unmarshal(data, temp)
 	if err != nil {
-		return settings, err
+		return err
 	}
 
 	tcpServices := map[string]bool{
@@ -81,9 +85,9 @@ func fetchServices() (settings Registry, err error) {
 	}
 
 	var services []Service
-	for _, service := range settings.Services {
+	for _, service := range temp.Services {
 		if service.Name == "" {
-			return settings, errors.New(`Service "name" field is required`)
+			return errors.New(`Service "name" field is required`)
 		}
 
 		if service.Port == 0 {
@@ -100,15 +104,20 @@ func fetchServices() (settings Registry, err error) {
 		}
 
 		if tcpServices[service.Scheme] && service.Protocol != "tcp" {
-			return settings, errors.New(fmt.Sprintf(`Service "%s" with scheme "%s" must use "tcp" protocol`,
+			return errors.New(fmt.Sprintf(`Service "%s" with scheme "%s" must use "tcp" protocol`,
 				service.Name, service.Scheme))
 		}
 
 		services = append(services, service)
 	}
 
-	settings.Services = services
-	return settings, nil
+	temp.Services = services
+
+	registryLock.Lock()
+	registry = temp
+	registryLock.Unlock()
+
+	return nil
 }
 
 func publishServices(services []Service, ipAddress string, reverseIPAddress string) error {
@@ -148,12 +157,6 @@ func publishServices(services []Service, ipAddress string, reverseIPAddress stri
 func main() {
 	flag.Parse()
 
-	settings, err := fetchServices()
-	if err != nil {
-		log.Println("err:", err)
-		os.Exit(1)
-	}
-
 	ipAddress, err := getIPAddress()
 	if err != nil {
 		log.Println("err:", err)
@@ -161,8 +164,19 @@ func main() {
 	}
 
 	reverseIPAddress := getReverseIPAddress(ipAddress)
-	err = publishServices(settings.Services, ipAddress, reverseIPAddress)
-	if err != nil {
+
+	reloadRegistry := func() error {
+		if err := loadRegistry(); err != nil {
+			return err
+		}
+
+		if err := publishServices(registry.Services, ipAddress, reverseIPAddress); err != nil {
+			return err
+		}
+		return nil
+	}
+
+	if err = reloadRegistry(); err != nil {
 		log.Println("err:", err)
 		os.Exit(1)
 	}
@@ -171,20 +185,8 @@ func main() {
 	signal.Notify(c,
 		syscall.SIGHUP,
 		syscall.SIGINT,
-		syscall.SIGTERM,
-		syscall.SIGQUIT)
-
-	reloadRegistry := func() error {
-		settings, err := fetchServices()
-		if err != nil {
-			return err
-		}
-
-		if err = publishServices(settings.Services, ipAddress, reverseIPAddress); err != nil {
-			return err
-		}
-		return nil
-	}
+		syscall.SIGQUIT,
+		syscall.SIGTERM)
 
 	e := make(chan int)
 	go func() {
