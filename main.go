@@ -34,6 +34,8 @@ var (
 	ipAddress    = flag.String("ip-address", "", "a hardcoded ip address")
 	registry     *Registry
 	registryLock = new(sync.RWMutex)
+	zone         *mdns.Zone
+	zoneLock     = new(sync.RWMutex)
 )
 
 func getIPAddress() (string, error) {
@@ -138,13 +140,9 @@ func getRegistry() *Registry {
 func publishServices(ipAddress string, reverseIPAddress string) error {
 	r := getRegistry()
 
-	zone, err := mdns.New()
-	if err != nil {
-		return err
-	}
-
 	publishedServices := map[string]bool{}
 	publishedServiceTypes := map[string]bool{}
+	zoneLock.Lock()
 	log.Println("registering services to", ipAddress)
 	for _, service := range r.Services {
 		name := service.Name
@@ -168,11 +166,20 @@ func publishServices(ipAddress string, reverseIPAddress string) error {
 		zone.Publish(fmt.Sprintf("%v.%v 60 IN SRV 0 0 %v %[1]v.local.", name, serviceType, service.Port))
 	}
 
+	zoneLock.Unlock()
 	return nil
 }
 
 func main() {
 	flag.Parse()
+
+	z, err := mdns.New()
+	if err != nil {
+		log.Println("err:", err)
+		os.Exit(1)
+	}
+
+	zone = z
 
 	ipAddress, err := getIPAddress()
 	if err != nil {
