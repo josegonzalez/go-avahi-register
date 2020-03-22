@@ -2,6 +2,11 @@
 
 A tool for registering services against avahi/bonjour.
 
+## Requirements
+
+- A Linux distribution: This project may work on other systems, but has only been tested on Linux.
+- The `avahi-daemon` package: This may be installed on Debian-based systems via `apt-get`
+
 ## Installation
 
 Install it using the "go get" command:
