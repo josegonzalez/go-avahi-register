@@ -8,7 +8,9 @@ Install it using the "go get" command:
 
     go get github.com/josegonzalez/go-avahi-register
 
-## Usage
+## Configuration
+
+> The default config file lives at `/etc/avahi-register/config.json`
 
 Create a `config.json` file. This file will contain all services that will be registered to the current IP address. An example is as follows:
 
@@ -35,25 +37,69 @@ Create a `config.json` file. This file will contain all services that will be re
 }
 ```
 
+## Usage
+
+### Running avahi-register
+
 Using the above `config.json`, `avahi-register` may be triggered as follows:
 
 ```shell
-avahi-register -config config.json
+avahi-register run
 ```
 
 By default, `avahi-register` will register against the first network interface with an IPv4 IP Address that is not a loopback device. In the case where this may be ambiguous or result in the wrong IP Address being selected, the value may be overriden with the `-ip-address` flag:
 
 ```shell
-avahi-register -config config.json -ip-address 192.168.1.2
+avahi-register run --ip-address 192.168.1.2
 ```
 
-The `avahi-register` process responds to signals, and will reload the `config.json` on `SIGHUP`. Note that an invalid `config.json` will result in a hard crash of `avahi-register`.
+The `avahi-register` process responds to signals, and will reload the `config.json` on `SIGHUP` or when the file is changed. Note that an invalid `config.json` will result in a hard crash of `avahi-register`.
+
+### Adding a new entry
+
+The `add` command can be used to add a new entry:
+
+```shell
+avahi-register add --name irc
+```
+
+See the `avahi-register add --help` output for more information.
+
+### Cat the config
+
+The `cat` command can be used to display the json config file:
+
+```shell
+avahi-register cat
+```
+
+See the `avahi-register cat --help` output for more information.
+
+### Removing an entry
+
+The `remove` command can be used to remove an entry:
+
+```shell
+avahi-register remove --name irc
+```
+
+See the `avahi-register remove --help` output for more information.
+
+### Showing the config
+
+The `show-config` command can be used to display a human readable version of the config:
+
+```shell
+avahi-register show-config
+```
+
+See the `avahi-register show-config --help` output for more information.
 
 ### Service Schema
 
 The schema for a service is as follows:
 
-- `name` (required, type: string): the name of the service to register
-- `port` (optional, type: int, default: `80`): the port on which the service is listening
+- `name` (required, type: string): the name of the service to register.
+- `port` (optional, type: int, default: `80`): the port on which the service is listening.
 - `scheme` (optional, type: string, default: `http`): A scheme that will be used to register an avahi service-type.
 - `protocol` (optional, type: string, default: `tcp`): A protocol that will be used to register an avahi service-type. If the `scheme` is `http` or `http`, the `protocol` **must** be `tcp`.

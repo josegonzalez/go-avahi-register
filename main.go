@@ -3,7 +3,6 @@ package main
 import (
 	"encoding/json"
 	"errors"
-	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -15,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/akamensky/argparse"
 	"github.com/josegonzalez/mdns"
 	"github.com/radovskyb/watcher"
 )
@@ -24,7 +24,6 @@ type Service struct {
 	Port     int    `json:"port"`
 	Protocol string `json:"protocol"`
 	Scheme   string `json:"scheme"`
-	Type     string
 }
 
 type Registry struct {
@@ -32,39 +31,82 @@ type Registry struct {
 }
 
 var (
-	configFile        = flag.String("config", "config.json", "path to the config.json config file")
-	ipAddress         = flag.String("ip-address", "", "a hardcoded ip address")
-	registry          *Registry
-	registryLock      = new(sync.RWMutex)
-	zone              *mdns.Zone
-	zoneLock          = new(sync.RWMutex)
 	publishedServices = map[string]Service{}
 	publishedTypes    = map[string]bool{}
+	registry          *Registry
+	registryLock      = new(sync.RWMutex)
+	Version           string
+	zone              *mdns.Zone
+	zoneLock          = new(sync.RWMutex)
 )
+
+func NewService(name string, port int, protocol string, scheme string) *Service {
+	if port == 0 {
+		port = 80
+	}
+
+	if protocol == "" {
+		protocol = "tcp"
+	}
+
+	return &Service{
+		Name:     name,
+		Port:     port,
+		Protocol: protocol,
+		Scheme:   scheme,
+	}
+}
+
+func (s *Service) Equals(o Service) bool {
+	return s.String() == o.String()
+}
 
 func (s *Service) String() string {
 	return fmt.Sprintf("%v+%v://%v.local:%v", s.Scheme, s.Protocol, s.Name, s.Port)
 }
 
-func getIPAddress() (string, error) {
-	if *ipAddress != "" {
-		return *ipAddress, nil
+func (s *Service) Type() string {
+	t := fmt.Sprintf("_%v._%v.local.", s.Scheme, s.Protocol)
+	if s.Scheme == "" {
+		t = fmt.Sprintf("_%v.local.", s.Protocol)
 	}
 
+	return t
+}
+
+func (s *Service) Validate() error {
+	if s.Name == "" {
+		return errors.New(`Service "name" field is required`)
+	}
+
+	tcpServices := map[string]bool{
+		"http":  true,
+		"https": true,
+	}
+
+	if tcpServices[s.Scheme] && s.Protocol != "tcp" {
+		return errors.New(fmt.Sprintf(`Service "%s" with scheme "%s" must use "tcp" protocol`,
+			s.Name, s.Scheme))
+	}
+
+	return nil
+}
+
+func getIPAddress() string {
 	addrs, err := net.InterfaceAddrs()
 	if err != nil {
-		return "", err
+		return ""
 	}
 
 	for _, address := range addrs {
 		// check the address type and if it is not a loopback the display it
 		if ipnet, ok := address.(*net.IPNet); ok && !ipnet.IP.IsLoopback() {
 			if ipnet.IP.To4() != nil {
-				return ipnet.IP.String(), nil
+				return ipnet.IP.String()
 			}
 		}
 	}
-	return "", errors.New("Could not retrieve ip address")
+	return ""
 }
 
 func getReverseIPAddress(ipAddress string) string {
@@ -77,8 +119,8 @@ func getReverseIPAddress(ipAddress string) string {
 	return strings.Join(pieces, ".")
 }
 
-func loadRegistry() (err error) {
-	data, err := ioutil.ReadFile(*configFile)
+func loadRegistry(configFile string) (err error) {
+	data, err := ioutil.ReadFile(configFile)
 	if err != nil {
 		return err
 	}
@@ -109,34 +151,12 @@ func loadRegistry() (err error) {
 }
 
 func hydrateService(s Service) (Service, error) {
-	if s.Name == "" {
-		return s, errors.New(`Service "name" field is required`)
+	service := *NewService(s.Name, s.Port, s.Protocol, s.Scheme)
+	if err := service.Validate(); err != nil {
+		return service, err
 	}
 
-	if s.Port == 0 {
-		s.Port = 80
-	}
-
-	if s.Protocol == "" {
-		s.Protocol = "tcp"
-	}
-
-	s.Type = fmt.Sprintf("_%v._%v.local.", s.Scheme, s.Protocol)
-	if s.Scheme == "" {
-		s.Type = fmt.Sprintf("_%v.local.", s.Protocol)
-	}
-
-	tcpServices := map[string]bool{
-		"http":  true,
-		"https": true,
-	}
-
-	if tcpServices[s.Scheme] && s.Protocol != "tcp" {
-		return s, errors.New(fmt.Sprintf(`Service "%s" with scheme "%s" must use "tcp" protocol`,
-			s.Name, s.Scheme))
-	}
-
-	return s, nil
+	return service, nil
 }
 
 func getRegistry() *Registry {
@@ -154,7 +174,7 @@ func publishServices(ipAddress string, reverseIPAddress string) error {
 
 	for _, service := range r.Services {
 		name := service.Name
-		serviceType := service.Type
+		serviceType := service.Type()
 
 		seenServices[service.String()] = true
 		seenTypes[serviceType] = true
@@ -197,39 +217,115 @@ func publishServices(ipAddress string, reverseIPAddress string) error {
 func publishService(service Service, ipAddress string, reverseIPAddress string) {
 	zone.Publish(fmt.Sprintf("%v.local. 60 IN A %v", service.Name, ipAddress))
 	zone.Publish(fmt.Sprintf("%v.in-addr.arpa. 60 IN PTR %s.local.", reverseIPAddress, service.Name))
-	zone.Publish(fmt.Sprintf("%v 60 IN PTR %v.%[1]v", service.Type, service.Name))
-	zone.Publish(fmt.Sprintf(`%v.%v 60 IN TXT ""`, service.Name, service.Type))
+	zone.Publish(fmt.Sprintf("%v 60 IN PTR %v.%[1]v", service.Type(), service.Name))
+	zone.Publish(fmt.Sprintf(`%v.%v 60 IN TXT ""`, service.Name, service.Type()))
 }
 
 func unpublishService(service Service, ipAddress string, reverseIPAddress string) {
 	zone.Unpublish(fmt.Sprintf("%v.local. 60 IN A %v", service.Name, ipAddress))
 	zone.Unpublish(fmt.Sprintf("%v.in-addr.arpa. 60 IN PTR %s.local.", reverseIPAddress, service.Name))
-	zone.Unpublish(fmt.Sprintf("%v 60 IN PTR %v.%[1]v", service.Type, service.Name))
-	zone.Unpublish(fmt.Sprintf(`%v.%v 60 IN TXT ""`, service.Name, service.Type))
-	zone.Unpublish(fmt.Sprintf("%v.%v 60 IN SRV 0 0 %v %[1]v.local.", service.Name, service.Type, service.Port))
+	zone.Unpublish(fmt.Sprintf("%v 60 IN PTR %v.%[1]v", service.Type(), service.Name))
+	zone.Unpublish(fmt.Sprintf(`%v.%v 60 IN TXT ""`, service.Name, service.Type()))
+	zone.Unpublish(fmt.Sprintf("%v.%v 60 IN SRV 0 0 %v %[1]v.local.", service.Name, service.Type(), service.Port))
 }
 
-func main() {
-	flag.Parse()
+func addCommand(configFile string, name string, port int, scheme string, protocol string) int {
+	if err := loadRegistry(configFile); err != nil {
+		log.Println("err:", err)
+		return 1
+	}
 
+	service := *NewService(name, port, protocol, scheme)
+	if err := service.Validate(); err != nil {
+		log.Println("err:", err)
+		return 1
+	}
+
+	for _, s := range registry.Services {
+		if s.Equals(service) {
+			log.Println(fmt.Sprintf("Service %s already exists", service.String()))
+			return 0
+		}
+	}
+
+	registry.Services = append(registry.Services, service)
+	file, err := json.MarshalIndent(registry, "", "  ")
+	if err != nil {
+		log.Println("err:", err)
+		return 1
+	}
+
+	if err = ioutil.WriteFile(configFile, file, 0644); err != nil {
+		log.Println("err:", err)
+		return 1
+	}
+
+	return 0
+}
+
+func catCommand(configFile string) int {
+	if err := loadRegistry(configFile); err != nil {
+		log.Println("err:", err)
+		return 1
+	}
+
+	b, err := json.MarshalIndent(registry, "", "  ")
+	if err != nil {
+		log.Println("err:", err)
+		return 1
+	}
+
+	fmt.Println(string(b))
+	return 0
+}
+
+func removeCommand(configFile string, name string, port int, scheme string, protocol string) int {
+	if err := loadRegistry(configFile); err != nil {
+		log.Println("err:", err)
+		return 1
+	}
+
+	service := *NewService(name, port, protocol, scheme)
+	if err := service.Validate(); err != nil {
+		log.Println("err:", err)
+		return 1
+	}
+
+	var services []Service
+	for _, s := range registry.Services {
+		if !s.Equals(service) {
+			services = append(services, s)
+		}
+	}
+
+	registry.Services = services
+	file, err := json.MarshalIndent(registry, "", "  ")
+	if err != nil {
+		log.Println("err:", err)
+		return 1
+	}
+
+	if err = ioutil.WriteFile(configFile, file, 0644); err != nil {
+		log.Println("err:", err)
+		return 1
+	}
+
+	return 0
+}
+
+func runCommand(configFile string, ipAddress string) int {
 	z, err := mdns.New()
 	if err != nil {
 		log.Println("err:", err)
-		os.Exit(1)
+		return 1
 	}
 
 	zone = z
 
-	ipAddress, err := getIPAddress()
-	if err != nil {
-		log.Println("err:", err)
-		os.Exit(1)
-	}
-
 	reverseIPAddress := getReverseIPAddress(ipAddress)
 
 	reloadServices := func() error {
-		if err := loadRegistry(); err != nil {
+		if err := loadRegistry(configFile); err != nil {
 			return err
 		}
 
@@ -242,14 +338,14 @@ func main() {
 	log.Println("registering services to", ipAddress)
 	if err = reloadServices(); err != nil {
 		log.Println("err:", err)
-		os.Exit(1)
+		return 1
 	}
 
 	w := watcher.New()
 	w.SetMaxEvents(1)
-	if err = w.Add(*configFile); err != nil {
+	if err := w.Add(configFile); err != nil {
 		log.Println("err:", err)
-		os.Exit(1)
+		return 1
 	}
 
 	c := make(chan os.Signal, 1)
@@ -344,7 +440,74 @@ func main() {
 	}
 
 	code := <-e
+	return code
+}
 
-	log.Println("exiting with code", code)
-	os.Exit(code)
+func showConfigCommand(configFile string) int {
+	if err := loadRegistry(configFile); err != nil {
+		log.Println("err:", err)
+		return 1
+	}
+
+	for _, service := range registry.Services {
+		fmt.Println(service.String())
+	}
+
+	return 0
+}
+
+func main() {
+	parser := argparse.NewParser("avahi-register", "A tool for registering services against avahi/bonjour")
+	configFileFlag := parser.String("c", "config", &argparse.Options{Default: "/etc/avahi-register/config.json", Help: "path to the config.json config file"})
+	versionFlag := parser.Flag("v", "version", &argparse.Options{Help: "show version"})
+
+	addCmd := parser.NewCommand("add", "add an entry to the config file")
+	nameAddFlag := addCmd.String("n", "name", &argparse.Options{Help: "name of the service", Required: true})
+	portAddFlag := addCmd.Int("p", "port", &argparse.Options{Default: 80, Help: "port on which the service is listening"})
+	schemeAddFlag := addCmd.String("s", "scheme", &argparse.Options{Default: "http", Help: "scheme of the service"})
+	protocolAddFlag := addCmd.String("r", "protocol", &argparse.Options{Default: "tcp", Help: "protocol of the service"})
+
+	catCmd := parser.NewCommand("cat", "cat the config file")
+
+	removeCmd := parser.NewCommand("remove", "remove an entry from the config file")
+	nameRemoveFlag := removeCmd.String("n", "name", &argparse.Options{Help: "name of the service", Required: true})
+	portRemoveFlag := removeCmd.Int("p", "port", &argparse.Options{Default: 80, Help: "port on which the service is listening"})
+	schemeRemoveFlag := removeCmd.String("s", "scheme", &argparse.Options{Default: "http", Help: "scheme of the service"})
+	protocolRemoveFlag := removeCmd.String("r", "protocol", &argparse.Options{Default: "tcp", Help: "protocol of the service"})
+
+	defaultIpAddress := getIPAddress()
+	ipAddressRequired := defaultIpAddress == ""
+	runCmd := parser.NewCommand("run", "run the avahi-register process")
+	ipAddressRunFlag := runCmd.String("i", "ip-address", &argparse.Options{Default: defaultIpAddress, Help: "a hardcoded IP address", Required: ipAddressRequired})
+
+	showConfigCmd := parser.NewCommand("show-config", "show the config file in a readable format")
+
+	if err := parser.Parse(os.Args); err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", parser.Usage(err))
+		os.Exit(1)
+		return
+	}
+
+	if *versionFlag {
+		fmt.Printf("procfile-util %v\n", Version)
+		os.Exit(0)
+		return
+	}
+
+	exitCode := 1
+	if addCmd.Happened() {
+		exitCode = addCommand(*configFileFlag, *nameAddFlag, *portAddFlag, *schemeAddFlag, *protocolAddFlag)
+	} else if catCmd.Happened() {
+		exitCode = catCommand(*configFileFlag)
+	} else if removeCmd.Happened() {
+		exitCode = removeCommand(*configFileFlag, *nameRemoveFlag, *portRemoveFlag, *schemeRemoveFlag, *protocolRemoveFlag)
+	} else if runCmd.Happened() {
+		exitCode = runCommand(*configFileFlag, *ipAddressRunFlag)
+	} else if showConfigCmd.Happened() {
+		exitCode = showConfigCommand(*configFileFlag)
+	} else {
+		fmt.Print(parser.Usage(nil))
+	}
+
+	os.Exit(exitCode)
 }

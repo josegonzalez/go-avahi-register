@@ -1,3 +1,5 @@
+github.com/akamensky/argparse v1.2.1 h1:YMYF1VMku+dnz7TVTJpYhsCXHSYCVMAIcKaBbjwbvZo=
+github.com/akamensky/argparse v1.2.1/go.mod h1:S5kwC7IuDcEr5VeXtGPRVZ5o/FdhcMlQz4IZQuw64xA=
 github.com/josegonzalez/mdns v0.0.0-20200322035045-701483f9b015 h1:hoJAIRidlgI5+kuhatBryc8LmreecaCvbsvFZM7CP2U=
 github.com/josegonzalez/mdns v0.0.0-20200322035045-701483f9b015/go.mod h1:5s4xk5cjPy+fXOUdgKqfqye3OUtuJPmJFfMEWZ0Ws8k=
 github.com/miekg/dns v1.1.6 h1:jVwb4GDwD65q/gtItR/lIZHjNH93QfeGxZUkzJcW9mc=

@@ -3,6 +3,7 @@ module avahi-register
 go 1.12
 
 require (
+	github.com/akamensky/argparse v1.2.1
 	github.com/josegonzalez/mdns v0.0.0-20200322035045-701483f9b015
 	github.com/miekg/dns v1.1.29
 	github.com/radovskyb/watcher v1.0.7
