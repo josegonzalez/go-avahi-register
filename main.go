@@ -79,36 +79,14 @@ func loadRegistry() (err error) {
 		return err
 	}
 
-	tcpServices := map[string]bool{
-		"http":  true,
-		"https": true,
-	}
-
 	var services []Service
 	for _, service := range temp.Services {
-		if service.Name == "" {
-			return errors.New(`Service "name" field is required`)
+		s, err := hydrateService(service)
+		if err != nil {
+			return err
 		}
 
-		if service.Port == 0 {
-			service.Port = 80
-		}
-
-		if service.Protocol == "" {
-			service.Protocol = "tcp"
-		}
-
-		service.ServiceType = fmt.Sprintf("_%v._%v.local.", service.Scheme, service.Protocol)
-		if service.Scheme == "" {
-			service.ServiceType = fmt.Sprintf("_%v.local.", service.Protocol)
-		}
-
-		if tcpServices[service.Scheme] && service.Protocol != "tcp" {
-			return errors.New(fmt.Sprintf(`Service "%s" with scheme "%s" must use "tcp" protocol`,
-				service.Name, service.Scheme))
-		}
-
-		services = append(services, service)
+		services = append(services, s)
 	}
 
 	temp.Services = services
@@ -118,6 +96,37 @@ func loadRegistry() (err error) {
 	registryLock.Unlock()
 
 	return nil
+}
+
+func hydrateService(s Service) (Service, error) {
+	if s.Name == "" {
+		return s, errors.New(`Service "name" field is required`)
+	}
+
+	if s.Port == 0 {
+		s.Port = 80
+	}
+
+	if s.Protocol == "" {
+		s.Protocol = "tcp"
+	}
+
+	s.ServiceType = fmt.Sprintf("_%v._%v.local.", s.Scheme, s.Protocol)
+	if s.Scheme == "" {
+		s.ServiceType = fmt.Sprintf("_%v.local.", s.Protocol)
+	}
+
+	tcpServices := map[string]bool{
+		"http":  true,
+		"https": true,
+	}
+
+	if tcpServices[s.Scheme] && s.Protocol != "tcp" {
+		return s, errors.New(fmt.Sprintf(`Service "%s" with scheme "%s" must use "tcp" protocol`,
+			s.Name, s.Scheme))
+	}
+
+	return s, nil
 }
 
 func publishServices(services []Service, ipAddress string, reverseIPAddress string) error {
