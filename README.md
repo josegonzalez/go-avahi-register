@@ -37,6 +37,26 @@ Create a `config.json` file. This file will contain all services that will be re
 }
 ```
 
+### Service Schema
+
+The schema for a service is as follows:
+
+- `name`: _required_
+  - type: `string`
+  - description: The name of the service to register.
+- `port`: _optional_
+  - type: `int`
+  - default: `80`
+  - description: The port on which the service is listening.
+- `scheme`: _optional_
+  - type: `string`
+  - default: `http`
+  - description: A scheme that will be used to register an avahi service-type.
+- `protocol`: _optional_
+  - type: `string`
+  - default: `tcp`
+  - description: A protocol that will be used to register an avahi service-type. If the `scheme` is `http` or `http`, the `protocol` **must** be `tcp`.
+
 ## Usage
 
 ### Running avahi-register
@@ -94,12 +114,3 @@ avahi-register show-config
 ```
 
 See the `avahi-register show-config --help` output for more information.
-
-### Service Schema
-
-The schema for a service is as follows:
-
-- `name` (required, type: string): the name of the service to register.
-- `port` (optional, type: int, default: `80`): the port on which the service is listening.
-- `scheme` (optional, type: string, default: `http`): A scheme that will be used to register an avahi service-type.
-- `protocol` (optional, type: string, default: `tcp`): A protocol that will be used to register an avahi service-type. If the `scheme` is `http` or `http`, the `protocol` **must** be `tcp`.
