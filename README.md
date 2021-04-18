@@ -15,7 +15,14 @@ Install it using the "go get" command:
 
 ## Configuration
 
-> The default config file lives at `/etc/avahi-register/config.json`
+`go-avahi-register` supports a single configuration file can be specified via
+the `--config` flag. By default, this value is set to
+`/etc/avahi-register/config.$FORMAT`, where `$FORMAT` is one of the following
+(detected in order):
+
+- json
+- yml
+- yaml
 
 Create a `config.json` file. This file will contain all services that will be registered to the current IP address. An example is as follows:
 
@@ -66,7 +73,7 @@ The schema for a service is as follows:
 
 ### Running avahi-register
 
-Using the above `config.json`, `avahi-register` may be triggered as follows:
+Using the above config file, `avahi-register` may be triggered as follows:
 
 ```shell
 avahi-register run
@@ -78,7 +85,7 @@ By default, `avahi-register` will register against the first network interface w
 avahi-register run --ip-address 192.168.1.2
 ```
 
-The `avahi-register` process responds to signals, and will reload the `config.json` on `SIGHUP` or when the file is changed. Note that an invalid `config.json` will result in a hard crash of `avahi-register`.
+The `avahi-register` process responds to signals, and will reload the config file on `SIGHUP` or when the file is changed. Note that an invalid config file will result in a hard crash of `avahi-register`.
 
 ### Adding a new entry
 

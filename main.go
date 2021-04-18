@@ -15,19 +15,20 @@ import (
 	"time"
 
 	"github.com/akamensky/argparse"
+	"github.com/goccy/go-yaml"
 	"github.com/josegonzalez/mdns"
 	"github.com/radovskyb/watcher"
 )
 
 type Service struct {
-	Name     string `json:"name"`
-	Port     int    `json:"port"`
-	Protocol string `json:"protocol"`
-	Scheme   string `json:"scheme"`
+	Name     string `json:"name" yaml:"name"`
+	Port     int    `json:"port" yaml:"port"`
+	Protocol string `json:"protocol" yaml:"protocol"`
+	Scheme   string `json:"scheme" yaml:"scheme"`
 }
 
 type Registry struct {
-	Services []Service `json:"services"`
+	Services []Service `json:"services" yaml:"services"`
 }
 
 var (
@@ -126,9 +127,16 @@ func loadRegistry(configFile string) (err error) {
 	}
 
 	temp := new(Registry)
-	err = json.Unmarshal(data, temp)
-	if err != nil {
-		return err
+	if strings.HasSuffix(configFile, ".json") {
+		if err = json.Unmarshal(data, temp); err != nil {
+			return err
+		}
+	} else if strings.HasSuffix(configFile, ".yaml") || strings.HasSuffix(configFile, ".yml") {
+		if err = yaml.Unmarshal(data, temp); err != nil {
+			return err
+		}
+	} else {
+		return errors.New("Unable to detect json or yaml config file format")
 	}
 
 	var services []Service
@@ -146,6 +154,27 @@ func loadRegistry(configFile string) (err error) {
 	registryLock.Lock()
 	registry = temp
 	registryLock.Unlock()
+
+	return nil
+}
+
+func writeRegistry(configFile string) (err error) {
+	var file []byte
+	if strings.HasSuffix(configFile, ".json") {
+		file, err = json.MarshalIndent(registry, "", "  ")
+	} else if strings.HasSuffix(configFile, ".yaml") || strings.HasSuffix(configFile, ".yml") {
+		file, err = yaml.Marshal(registry)
+	} else {
+		return errors.New("Unable to detect json or yaml config file format")
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if err = ioutil.WriteFile(configFile, file, 0644); err != nil {
+		return err
+	}
 
 	return nil
 }
@@ -249,13 +278,7 @@ func addCommand(configFile string, name string, port int, scheme string, protoco
 	}
 
 	registry.Services = append(registry.Services, service)
-	file, err := json.MarshalIndent(registry, "", "  ")
-	if err != nil {
-		log.Println("err:", err)
-		return 1
-	}
-
-	if err = ioutil.WriteFile(configFile, file, 0644); err != nil {
+	if err := writeRegistry(configFile); err != nil {
 		log.Println("err:", err)
 		return 1
 	}
@@ -269,7 +292,17 @@ func catCommand(configFile string) int {
 		return 1
 	}
 
-	b, err := json.MarshalIndent(registry, "", "  ")
+	var b []byte
+	var err error
+	if strings.HasSuffix(configFile, ".json") {
+		b, err = json.MarshalIndent(registry, "", "  ")
+	} else if strings.HasSuffix(configFile, ".yaml") || strings.HasSuffix(configFile, ".yml") {
+		b, err = yaml.Marshal(registry)
+	} else {
+		log.Println("err:", "Unable to detect json or yaml config file format")
+		return 1
+	}
+
 	if err != nil {
 		log.Println("err:", err)
 		return 1
@@ -284,13 +317,7 @@ func initCommand(configFile string) int {
 		registry = new(Registry)
 	}
 
-	file, err := json.MarshalIndent(registry, "", "  ")
-	if err != nil {
-		log.Println("err:", err)
-		return 1
-	}
-
-	if err = ioutil.WriteFile(configFile, file, 0644); err != nil {
+	if err := writeRegistry(configFile); err != nil {
 		log.Println("err:", err)
 		return 1
 	}
@@ -318,13 +345,7 @@ func removeCommand(configFile string, name string, port int, scheme string, prot
 	}
 
 	registry.Services = services
-	file, err := json.MarshalIndent(registry, "", "  ")
-	if err != nil {
-		log.Println("err:", err)
-		return 1
-	}
-
-	if err = ioutil.WriteFile(configFile, file, 0644); err != nil {
+	if err := writeRegistry(configFile); err != nil {
 		log.Println("err:", err)
 		return 1
 	}
@@ -476,8 +497,17 @@ func showConfigCommand(configFile string) int {
 }
 
 func main() {
+	defaultConfigFile := "/etc/avahi-register/config.json"
+	if _, err := os.Stat("/etc/avahi-register/config.json"); err == nil {
+		defaultConfigFile = "/etc/avahi-register/config.json"
+	} else if _, err := os.Stat("/etc/avahi-register/config.yaml"); err == nil {
+		defaultConfigFile = "/etc/avahi-register/config.yaml"
+	} else if _, err := os.Stat("/etc/avahi-register/config.yml"); err == nil {
+		defaultConfigFile = "/etc/avahi-register/config.yml"
+	}
+
 	parser := argparse.NewParser("avahi-register", "A tool for registering services against avahi/bonjour")
-	configFileFlag := parser.String("c", "config", &argparse.Options{Default: "/etc/avahi-register/config.json", Help: "path to the config.json config file"})
+	configFileFlag := parser.String("c", "config", &argparse.Options{Default: defaultConfigFile, Help: "path to the config.json config file"})
 	versionFlag := parser.Flag("v", "version", &argparse.Options{Help: "show version"})
 
 	addCmd := parser.NewCommand("add", "add an entry to the config file")
