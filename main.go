@@ -456,6 +456,7 @@ func runCommand(configFile string, ipAddress string) int {
 					log.Println("config file updated")
 					if err := reloadServices(); err != nil {
 						log.Println("err:", err)
+						w.Close()
 						e <- 1
 					}
 				}
