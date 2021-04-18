@@ -1,4 +1,4 @@
-# go-avahi-register [![CircleCI](https://circleci.com/gh/josegonzalez/go-avahi-register.svg?style=svg)](https://circleci.com/gh/josegonzalez/go-avahi-register)
+# go-avahi-register ![build status](https://github.com/josegonzalez/go-avahi-register/actions/workflows/build.yml/badge.svg)
 
 A tool for registering services against avahi/bonjour.
 
