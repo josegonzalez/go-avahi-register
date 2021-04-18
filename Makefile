@@ -10,7 +10,7 @@ IMAGE_NAME ?= $(MAINTAINER)/$(REPOSITORY)
 PACKAGECLOUD_REPOSITORY ?= josegonzalez/packages-beta
 DEPENDS ?= avahi-daemon
 
-ifeq ($(CIRCLE_BRANCH),release)
+ifeq ($(CI_BRANCH),release)
 	VERSION ?= $(BASE_VERSION)
 	DOCKER_IMAGE_VERSION = $(VERSION)
 else
@@ -19,7 +19,7 @@ else
 endif
 
 version:
-	@echo "$(CIRCLE_BRANCH)"
+	@echo "$(CI_BRANCH)"
 	@echo "$(VERSION)"
 
 define PACKAGE_DESCRIPTION
@@ -35,14 +35,14 @@ targets = $(addsuffix -in-docker, $(LIST))
 .env.docker:
 	@rm -f .env.docker
 	@touch .env.docker
-	@echo "CIRCLE_BRANCH=$(CIRCLE_BRANCH)" >> .env.docker
+	@echo "CI_BRANCH=$(CI_BRANCH)" >> .env.docker
 	@echo "GITHUB_ACCESS_TOKEN=$(GITHUB_ACCESS_TOKEN)" >> .env.docker
 	@echo "IMAGE_NAME=$(IMAGE_NAME)" >> .env.docker
 	@echo "PACKAGECLOUD_REPOSITORY=$(PACKAGECLOUD_REPOSITORY)" >> .env.docker
 	@echo "PACKAGECLOUD_TOKEN=$(PACKAGECLOUD_TOKEN)" >> .env.docker
 	@echo "VERSION=$(VERSION)" >> .env.docker
 
-build:
+build: prebuild
 	@$(MAKE) build/darwin/$(NAME)
 	@$(MAKE) build/linux/$(NAME)
 	@$(MAKE) build/deb/$(NAME)_$(VERSION)_amd64.deb
@@ -57,6 +57,7 @@ $(targets): %-in-docker: .env.docker
 		--rm \
 		--volume /var/lib/docker:/var/lib/docker \
 		--volume /var/run/docker.sock:/var/run/docker.sock:ro \
+		--volume /usr/bin/docker:/usr/local/bin/docker \
 		--volume ${PWD}:/src/github.com/$(MAINTAINER)/$(REPOSITORY) \
 		--workdir /src/github.com/$(MAINTAINER)/$(REPOSITORY) \
 		$(IMAGE_NAME):build make -e $(@:-in-docker=)
@@ -125,17 +126,16 @@ build/rpm/$(NAME)-$(VERSION)-1.x86_64.rpm: build/linux/$(NAME)
 clean:
 	rm -rf build release validation
 
-circleci:
+ci-report:
 	docker version
 	rm -f ~/.gitconfig
 
 docker-image:
 	docker build --rm -q -f Dockerfile.hub -t $(IMAGE_NAME):$(DOCKER_IMAGE_VERSION) .
-	docker tag $(IMAGE_NAME):$(DOCKER_IMAGE_VERSION) $(IMAGE_NAME):hub
 
 bin/gh-release:
 	mkdir -p bin
-	curl -o bin/gh-release.tgz -sL https://github.com/progrium/gh-release/releases/download/v2.2.1/gh-release_2.2.1_$(SYSTEM_NAME)_$(HARDWARE).tgz
+	curl -o bin/gh-release.tgz -sL https://github.com/progrium/gh-release/releases/download/v2.3.0/gh-release_2.3.0_$(SYSTEM_NAME)_$(HARDWARE).tgz
 	tar xf bin/gh-release.tgz -C bin
 	chmod +x bin/gh-release
 
@@ -154,6 +154,7 @@ release-packagecloud:
 release-packagecloud-deb: build/deb/$(NAME)_$(VERSION)_amd64.deb
 	package_cloud push $(PACKAGECLOUD_REPOSITORY)/ubuntu/xenial  build/deb/$(NAME)_$(VERSION)_amd64.deb
 	package_cloud push $(PACKAGECLOUD_REPOSITORY)/ubuntu/bionic  build/deb/$(NAME)_$(VERSION)_amd64.deb
+	package_cloud push $(PACKAGECLOUD_REPOSITORY)/ubuntu/focal   build/deb/$(NAME)_$(VERSION)_amd64.deb
 	package_cloud push $(PACKAGECLOUD_REPOSITORY)/debian/stretch build/deb/$(NAME)_$(VERSION)_amd64.deb
 	package_cloud push $(PACKAGECLOUD_REPOSITORY)/debian/buster  build/deb/$(NAME)_$(VERSION)_amd64.deb
 
@@ -170,3 +171,6 @@ validate:
 	ls -lah build/deb build/rpm validation
 	sha1sum build/deb/$(NAME)_$(VERSION)_amd64.deb
 	sha1sum build/rpm/$(NAME)-$(VERSION)-1.x86_64.rpm
+
+prebuild:
+	true
