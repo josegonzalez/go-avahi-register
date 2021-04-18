@@ -202,7 +202,7 @@ func publishServices(ipAddress string, reverseIPAddress string) error {
 		}
 	}
 
-	for serviceType, _ := range publishedTypes {
+	for serviceType := range publishedTypes {
 		if !seenTypes[serviceType] {
 			log.Println("deregistering type", serviceType)
 			zone.Unpublish(fmt.Sprintf("_services._dns-sd._udp.local. 60 IN PTR %v", serviceType))
