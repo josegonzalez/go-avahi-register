@@ -1,0 +1,12 @@
+---
+services:
+- name: nodejs-express
+  port: 80
+  scheme: http
+- name: personal-apt-repository
+  port: 80
+  scheme: apt
+- name: awesome-ntp-server
+  port: 123
+  scheme: ntp
+  protocol: udp

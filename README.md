@@ -24,29 +24,21 @@ the `--config` flag. By default, this value is set to
 - yml
 - yaml
 
-Create a `config.json` file. This file will contain all services that will be registered to the current IP address. An example is as follows:
+Create a `config.yml` file. This file will contain all services that will be registered to the current IP address. An example is as follows:
 
-```json
-{
-  "services": [
-    {
-      "name": "nodejs-express",
-      "port": 80,
-      "scheme": "http"
-    },
-    {
-      "name": "personal-apt-repository",
-      "port": 80,
-      "scheme": "apt"
-    },
-    {
-      "name": "awesome-ntp-server",
-      "port": 123,
-      "scheme": "ntp",
-      "protocol": "udp"
-    }
-  ]
-}
+```yaml
+---
+services:
+- name: nodejs-express
+  port: 80
+  scheme: http
+- name: personal-apt-repository
+  port: 80
+  scheme: apt
+- name: awesome-ntp-server
+  port: 123
+  scheme: ntp
+  protocol: udp
 ```
 
 ### Service Schema
@@ -99,7 +91,7 @@ See the `avahi-register add --help` output for more information.
 
 ### Cat the config
 
-The `cat` command can be used to display the json config file:
+The `cat` command can be used to display the config file:
 
 ```shell
 avahi-register cat
