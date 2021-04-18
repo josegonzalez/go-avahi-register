@@ -541,7 +541,7 @@ func main() {
 	}
 
 	if *versionFlag {
-		fmt.Printf("procfile-util %v\n", Version)
+		fmt.Printf("avahi-register %v\n", Version)
 		os.Exit(0)
 		return
 	}
