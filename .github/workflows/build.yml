@@ -37,7 +37,7 @@ jobs:
       run: |
         if [[ "${GITHUB_REF#refs/heads/}" == "release" ]]; then
           export CI_BRANCH=${GITHUB_REF#refs/heads/}
-          export PACKAGECLOUD_REPOSITORY=dokku/dokku
+          export PACKAGECLOUD_REPOSITORY=josegonzalez/packages
           rm .env.docker
           make .env.docker release-in-docker release-packagecloud-in-docker
         fi
