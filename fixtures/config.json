@@ -1,0 +1,5 @@
+---
+services:
+- name: nodejs-express
+  port: 80
+  scheme: http
