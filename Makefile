@@ -193,7 +193,6 @@ release: build bin/gh-release
 
 release-packagecloud:
 	@$(MAKE) release-packagecloud-deb
-	@$(MAKE) release-packagecloud-rpm
 
 release-packagecloud-deb: build/deb/$(NAME)_$(VERSION)_amd64.deb
 	package_cloud push $(PACKAGECLOUD_REPOSITORY)/ubuntu/focal    build/deb/$(NAME)_$(VERSION)_amd64.deb
@@ -206,7 +205,6 @@ validate:
 	dpkg-deb --info build/deb/$(NAME)_$(VERSION)_amd64.deb
 	dpkg -c build/deb/$(NAME)_$(VERSION)_amd64.deb
 	cd validation && ar -x ../build/deb/$(NAME)_$(VERSION)_amd64.deb
-	ls -lah build/deb build/rpm validation
 	sha1sum build/deb/$(NAME)_$(VERSION)_amd64.deb
 	sha1sum build/deb/$(NAME)_$(VERSION)_arm64.deb
 	sha1sum build/deb/$(NAME)_$(VERSION)_armhf.deb
