@@ -26,7 +26,6 @@ jobs:
         export CI_BRANCH=${GITHUB_REF#refs/heads/}
         make version .env.docker
     - run: make ci-report
-    - run: make build-docker-image
     - run: make build-in-docker
     - run: make validate-in-docker
     - name: upload packages

@@ -43,10 +43,14 @@ targets = $(addsuffix -in-docker, $(LIST))
 	@echo "VERSION=$(VERSION)" >> .env.docker
 
 build: prebuild
-	@$(MAKE) build/darwin/$(NAME)
-	@$(MAKE) build/linux/$(NAME)
+	@$(MAKE) build/linux/$(NAME)-amd64
+	@$(MAKE) build/linux/$(NAME)-arm64
+	@$(MAKE) build/linux/$(NAME)-armhf
+	@$(MAKE) build/darwin/$(NAME)-amd64
+	@$(MAKE) build/darwin/$(NAME)-arm64
 	@$(MAKE) build/deb/$(NAME)_$(VERSION)_amd64.deb
-	@$(MAKE) build/rpm/$(NAME)-$(VERSION)-1.x86_64.rpm
+	@$(MAKE) build/deb/$(NAME)_$(VERSION)_arm64.deb
+	@$(MAKE) build/deb/$(NAME)_$(VERSION)_armhf.deb
 
 build-docker-image:
 	docker build --rm -q -f Dockerfile.build -t $(IMAGE_NAME):build .
@@ -62,19 +66,37 @@ $(targets): %-in-docker: .env.docker
 		--workdir /src/github.com/$(MAINTAINER)/$(REPOSITORY) \
 		$(IMAGE_NAME):build make -e $(@:-in-docker=)
 
-build/darwin/$(NAME):
+build/darwin/$(NAME)-amd64:
 	mkdir -p build/darwin
-	CGO_ENABLED=0 GOOS=darwin go build -a -asmflags=-trimpath=/src -gcflags=-trimpath=/src \
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build -a -asmflags=-trimpath=/src -gcflags=-trimpath=/src \
 										-ldflags "-s -w -X main.Version=$(VERSION)" \
-										-o build/darwin/$(NAME)
+										-o build/darwin/$(NAME)-amd64
 
-build/linux/$(NAME):
+build/darwin/$(NAME)-arm64:
+	mkdir -p build/darwin
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build -a -asmflags=-trimpath=/src -gcflags=-trimpath=/src \
+										-ldflags "-s -w -X main.Version=$(VERSION)" \
+										-o build/darwin/$(NAME)-arm64
+
+build/linux/$(NAME)-amd64:
 	mkdir -p build/linux
-	CGO_ENABLED=0 GOOS=linux go build -a -asmflags=-trimpath=/src -gcflags=-trimpath=/src \
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -a -asmflags=-trimpath=/src -gcflags=-trimpath=/src \
 										-ldflags "-s -w -X main.Version=$(VERSION)" \
-										-o build/linux/$(NAME)
+										-o build/linux/$(NAME)-amd64
 
-build/deb/$(NAME)_$(VERSION)_amd64.deb: build/linux/$(NAME)
+build/linux/$(NAME)-arm64:
+	mkdir -p build/linux
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -a -asmflags=-trimpath=/src -gcflags=-trimpath=/src \
+										-ldflags "-s -w -X main.Version=$(VERSION)" \
+										-o build/linux/$(NAME)-arm64
+
+build/linux/$(NAME)-armhf:
+	mkdir -p build/linux
+	CGO_ENABLED=0 GOOS=linux GOARCH=arm GOARM=5 go build -a -asmflags=-trimpath=/src -gcflags=-trimpath=/src \
+										-ldflags "-s -w -X main.Version=$(VERSION)" \
+										-o build/linux/$(NAME)-armhf
+
+build/deb/$(NAME)_$(VERSION)_amd64.deb: build/linux/$(NAME)-amd64
 	export SOURCE_DATE_EPOCH=$(shell git log -1 --format=%ct) \
 		&& mkdir -p build/deb \
 		&& fpm \
@@ -98,12 +120,12 @@ build/deb/$(NAME)_$(VERSION)_amd64.deb: build/linux/$(NAME)
 		install/systemd.target=/etc/systemd/system/$(NAME).target \
 		LICENSE=/usr/share/doc/$(NAME)/copyright
 
-build/rpm/$(NAME)-$(VERSION)-1.x86_64.rpm: build/linux/$(NAME)
+build/deb/$(NAME)_$(VERSION)_arm64.deb: build/linux/$(NAME)-arm64
 	export SOURCE_DATE_EPOCH=$(shell git log -1 --format=%ct) \
-		&& mkdir -p build/rpm \
+		&& mkdir -p build/deb \
 		&& fpm \
 		--after-install install/postinstall.sh \
-		--architecture x86_64 \
+		--architecture arm64 \
 		--category utils \
 		--description "$$PACKAGE_DESCRIPTION" \
 		--depends $(DEPENDS) \
@@ -111,9 +133,8 @@ build/rpm/$(NAME)-$(VERSION)-1.x86_64.rpm: build/linux/$(NAME)
 		--license 'MIT License' \
 		--maintainer "$(MAINTAINER_NAME) <$(EMAIL)>" \
 		--name $(NAME) \
-		--output-type rpm \
-		--package build/rpm/$(NAME)-$(VERSION)-1.x86_64.rpm \
-		--rpm-os linux \
+		--output-type deb \
+		--package build/deb/$(NAME)_$(VERSION)_arm64.deb \
 		--url "https://github.com/$(MAINTAINER)/$(REPOSITORY)" \
 		--vendor "" \
 		--version $(VERSION) \
@@ -123,15 +144,35 @@ build/rpm/$(NAME)-$(VERSION)-1.x86_64.rpm: build/linux/$(NAME)
 		install/systemd.target=/etc/systemd/system/$(NAME).target \
 		LICENSE=/usr/share/doc/$(NAME)/copyright
 
+build/deb/$(NAME)_$(VERSION)_armhf.deb: build/linux/$(NAME)-armhf
+	export SOURCE_DATE_EPOCH=$(shell git log -1 --format=%ct) \
+		&& mkdir -p build/deb \
+		&& fpm \
+		--after-install install/postinstall.sh \
+		--architecture armhf \
+		--category utils \
+		--description "$$PACKAGE_DESCRIPTION" \
+		--depends $(DEPENDS) \
+		--input-type dir \
+		--license 'MIT License' \
+		--maintainer "$(MAINTAINER_NAME) <$(EMAIL)>" \
+		--name $(NAME) \
+		--output-type deb \
+		--package build/deb/$(NAME)_$(VERSION)_armhf.deb \
+		--url "https://github.com/$(MAINTAINER)/$(REPOSITORY)" \
+		--vendor "" \
+		--version $(VERSION) \
+		--verbose \
+		build/linux/$(NAME)=/usr/bin/$(NAME) \
+		install/systemd.service=/etc/systemd/system/$(NAME).service \
+		install/systemd.target=/etc/systemd/system/$(NAME).target \
+		LICENSE=/usr/share/doc/$(NAME)/copyright
 clean:
 	rm -rf build release validation
 
 ci-report:
 	docker version
 	rm -f ~/.gitconfig
-
-docker-image:
-	docker build --rm -q -f Dockerfile.hub -t $(IMAGE_NAME):$(DOCKER_IMAGE_VERSION) .
 
 bin/gh-release:
 	mkdir -p bin
@@ -141,10 +182,13 @@ bin/gh-release:
 
 release: build bin/gh-release
 	rm -rf release && mkdir release
-	tar -zcf release/$(NAME)_$(VERSION)_linux_$(HARDWARE).tgz -C build/linux $(NAME)
-	tar -zcf release/$(NAME)_$(VERSION)_darwin_$(HARDWARE).tgz -C build/darwin $(NAME)
+	tar -zcf release/$(NAME)_$(VERSION)_linux_amd64.tgz -C build/linux $(NAME)-amd64
+	tar -zcf release/$(NAME)_$(VERSION)_linux_arm64.tgz -C build/linux $(NAME)-arm64
+	tar -zcf release/$(NAME)_$(VERSION)_linux_armhf.tgz -C build/linux $(NAME)-armhf
+	tar -zcf release/$(NAME)_$(VERSION)_darwin_amd64.tgz -C build/darwin $(NAME)-amd64
+	tar -zcf release/$(NAME)_$(VERSION)_darwin_arm64.tgz -C build/darwin $(NAME)-arm64
 	cp build/deb/$(NAME)_$(VERSION)_amd64.deb release/$(NAME)_$(VERSION)_amd64.deb
-	cp build/rpm/$(NAME)-$(VERSION)-1.x86_64.rpm release/$(NAME)-$(VERSION)-1.x86_64.rpm
+	cp build/deb/$(NAME)_$(VERSION)_arm64.deb release/$(NAME)_$(VERSION)_arm64.deb
 	bin/gh-release create $(MAINTAINER)/$(REPOSITORY) $(VERSION) $(shell git rev-parse --abbrev-ref HEAD)
 
 release-packagecloud:
@@ -152,14 +196,9 @@ release-packagecloud:
 	@$(MAKE) release-packagecloud-rpm
 
 release-packagecloud-deb: build/deb/$(NAME)_$(VERSION)_amd64.deb
-	package_cloud push $(PACKAGECLOUD_REPOSITORY)/ubuntu/xenial  build/deb/$(NAME)_$(VERSION)_amd64.deb
-	package_cloud push $(PACKAGECLOUD_REPOSITORY)/ubuntu/bionic  build/deb/$(NAME)_$(VERSION)_amd64.deb
-	package_cloud push $(PACKAGECLOUD_REPOSITORY)/ubuntu/focal   build/deb/$(NAME)_$(VERSION)_amd64.deb
-	package_cloud push $(PACKAGECLOUD_REPOSITORY)/debian/stretch build/deb/$(NAME)_$(VERSION)_amd64.deb
-	package_cloud push $(PACKAGECLOUD_REPOSITORY)/debian/buster  build/deb/$(NAME)_$(VERSION)_amd64.deb
-
-release-packagecloud-rpm: build/rpm/$(NAME)-$(VERSION)-1.x86_64.rpm
-	package_cloud push $(PACKAGECLOUD_REPOSITORY)/el/7           build/rpm/$(NAME)-$(VERSION)-1.x86_64.rpm
+	package_cloud push $(PACKAGECLOUD_REPOSITORY)/ubuntu/focal    build/deb/$(NAME)_$(VERSION)_amd64.deb
+	package_cloud push $(PACKAGECLOUD_REPOSITORY)/ubuntu/jammy    build/deb/$(NAME)_$(VERSION)_amd64.deb
+	package_cloud push $(PACKAGECLOUD_REPOSITORY)/debian/bullseye build/deb/$(NAME)_$(VERSION)_amd64.deb
 
 validate:
 	mkdir -p validation
@@ -167,10 +206,10 @@ validate:
 	dpkg-deb --info build/deb/$(NAME)_$(VERSION)_amd64.deb
 	dpkg -c build/deb/$(NAME)_$(VERSION)_amd64.deb
 	cd validation && ar -x ../build/deb/$(NAME)_$(VERSION)_amd64.deb
-	cd validation && rpm2cpio ../build/rpm/$(NAME)-$(VERSION)-1.x86_64.rpm > $(NAME)-$(VERSION)-1.x86_64.cpio
 	ls -lah build/deb build/rpm validation
 	sha1sum build/deb/$(NAME)_$(VERSION)_amd64.deb
-	sha1sum build/rpm/$(NAME)-$(VERSION)-1.x86_64.rpm
+	sha1sum build/deb/$(NAME)_$(VERSION)_arm64.deb
+	sha1sum build/deb/$(NAME)_$(VERSION)_armhf.deb
 
 prebuild:
 	true
