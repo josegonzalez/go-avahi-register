@@ -115,7 +115,7 @@ build/deb/$(NAME)_$(VERSION)_amd64.deb: build/linux/$(NAME)-amd64
 		--vendor "" \
 		--version $(VERSION) \
 		--verbose \
-		build/linux/$(NAME)=/usr/bin/$(NAME) \
+		build/linux/$(NAME)=/usr/bin/$(NAME)-amd64 \
 		install/systemd.service=/etc/systemd/system/$(NAME).service \
 		install/systemd.target=/etc/systemd/system/$(NAME).target \
 		LICENSE=/usr/share/doc/$(NAME)/copyright
@@ -139,7 +139,7 @@ build/deb/$(NAME)_$(VERSION)_arm64.deb: build/linux/$(NAME)-arm64
 		--vendor "" \
 		--version $(VERSION) \
 		--verbose \
-		build/linux/$(NAME)=/usr/bin/$(NAME) \
+		build/linux/$(NAME)=/usr/bin/$(NAME)-arm64 \
 		install/systemd.service=/etc/systemd/system/$(NAME).service \
 		install/systemd.target=/etc/systemd/system/$(NAME).target \
 		LICENSE=/usr/share/doc/$(NAME)/copyright
@@ -163,7 +163,7 @@ build/deb/$(NAME)_$(VERSION)_armhf.deb: build/linux/$(NAME)-armhf
 		--vendor "" \
 		--version $(VERSION) \
 		--verbose \
-		build/linux/$(NAME)=/usr/bin/$(NAME) \
+		build/linux/$(NAME)=/usr/bin/$(NAME)-armhf \
 		install/systemd.service=/etc/systemd/system/$(NAME).service \
 		install/systemd.target=/etc/systemd/system/$(NAME).target \
 		LICENSE=/usr/share/doc/$(NAME)/copyright
