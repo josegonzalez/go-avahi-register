@@ -212,4 +212,5 @@ validate:
 	sha1sum build/deb/$(NAME)_$(VERSION)_armhf.deb
 
 prebuild:
-	true
+	git config --global --add safe.directory $(shell pwd)
+	git status
