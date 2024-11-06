@@ -6,8 +6,8 @@ github.com/gabriel-vasile/mimetype v1.4.3 h1:in2uUcidCuFcDKtdcBxlR0rJ1+fsokWf+uq
 github.com/go-playground/locales v0.14.1 h1:EWaQ/wswjilfKLTECiXz7Rh+3BjFhfDFKv/oXslEjJA=
 github.com/go-playground/universal-translator v0.18.1 h1:Bcnm0ZwsGyWbCzImXv+pAJnYK9S473LQFuzCbDbfSFY=
 github.com/go-playground/validator/v10 v10.22.1 h1:40JcKH+bBNGFczGuoBYgX4I6m/i27HYW8P9FDk5PbgA=
-github.com/goccy/go-yaml v1.13.5 h1:/Hh9Q3d1Q2T7E8ECUUS7Uh53FBGKLfetvQoSV7kLViU=
-github.com/goccy/go-yaml v1.13.5/go.mod h1:IjYwxUiJDoqpx2RmbdjMUceGHZwYLon3sfOGl5Hi9lc=
+github.com/goccy/go-yaml v1.13.6 h1:pa3JkBPBseTtfqpG9DiSFhyxNPSpJ0BFa39BlMZE16E=
+github.com/goccy/go-yaml v1.13.6/go.mod h1:IjYwxUiJDoqpx2RmbdjMUceGHZwYLon3sfOGl5Hi9lc=
 github.com/google/go-cmp v0.6.0 h1:ofyhxvXcZhMsU5ulbFiLKl/XBFqE1GSq7atu8tAmTRI=
 github.com/josegonzalez/mdns v0.0.0-20200322035045-701483f9b015 h1:hoJAIRidlgI5+kuhatBryc8LmreecaCvbsvFZM7CP2U=
 github.com/josegonzalez/mdns v0.0.0-20200322035045-701483f9b015/go.mod h1:5s4xk5cjPy+fXOUdgKqfqye3OUtuJPmJFfMEWZ0Ws8k=
