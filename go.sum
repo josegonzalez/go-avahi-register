@@ -1,7 +1,7 @@
 github.com/akamensky/argparse v1.4.0 h1:YGzvsTqCvbEZhL8zZu2AiA5nq805NZh75JNj4ajn1xc=
 github.com/akamensky/argparse v1.4.0/go.mod h1:S5kwC7IuDcEr5VeXtGPRVZ5o/FdhcMlQz4IZQuw64xA=
-github.com/goccy/go-yaml v1.15.6 h1:gy5kf1yjMia3/c3wWD+u1z3lU5XlhpT8FZGaLJU9cOA=
-github.com/goccy/go-yaml v1.15.6/go.mod h1:XBurs7gK8ATbW4ZPGKgcbrY1Br56PdM69F7LkFRi1kA=
+github.com/goccy/go-yaml v1.15.7 h1:L7XuKpd/A66X4w/dlk08lVfiIADdy79a1AzRoIefC98=
+github.com/goccy/go-yaml v1.15.7/go.mod h1:XBurs7gK8ATbW4ZPGKgcbrY1Br56PdM69F7LkFRi1kA=
 github.com/josegonzalez/mdns v0.0.0-20200322035045-701483f9b015 h1:hoJAIRidlgI5+kuhatBryc8LmreecaCvbsvFZM7CP2U=
 github.com/josegonzalez/mdns v0.0.0-20200322035045-701483f9b015/go.mod h1:5s4xk5cjPy+fXOUdgKqfqye3OUtuJPmJFfMEWZ0Ws8k=
 github.com/miekg/dns v1.1.41 h1:WMszZWJG0XmzbK9FEmzH2TVcqYzFesusSIB41b8KHxY=
