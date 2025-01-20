@@ -4,7 +4,7 @@ go 1.20
 
 require (
 	github.com/akamensky/argparse v1.4.0
-	github.com/goccy/go-yaml v1.15.13
+	github.com/goccy/go-yaml v1.15.15
 	github.com/josegonzalez/mdns v0.0.0-20200322035045-701483f9b015
 	github.com/radovskyb/watcher v1.0.7
 )
