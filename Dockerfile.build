@@ -1,9 +1,9 @@
-FROM golang:1.20-bullseye
+FROM golang:1.24-bullseye
 
 RUN apt-get update \
-    && apt install apt-transport-https build-essential curl gnupg2 lintian rsync rubygems-integration ruby-dev ruby -qy \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+  && apt install apt-transport-https build-essential curl gnupg2 lintian rsync rubygems-integration ruby-dev ruby -qy \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
 RUN gem install --quiet rake fpm package_cloud
 
